@@ -2,10 +2,11 @@
 #include "DHT.h"
 #include "RTClib.h"
 #include <Wire.h>
+#include <Stepper.h>
+
 
 #define DHTPIN 6
 #define DHTTYPE DHT11
-
 DHT dht(DHTPIN, DHTTYPE);
 
 //rs = pin 7, e = pin 8, d4 = pin 9, d5 = pin 10, d6 = pin 11, d7 = pin 12 
@@ -27,6 +28,9 @@ volatile unsigned char* my_ADC_DATA = (unsigned char *) 0x78;
 RTC_DS1307 rtc;
 char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
+const int stepsPerRevolution = 32;
+Stepper myStepper = Stepper(stepsPerRevolution, 2, 4, 3, 5);
+
 void setup() {
   Serial.begin(9600);
   adc_init();
@@ -46,10 +50,21 @@ void setup() {
 
   rtc.begin();
   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+
 }
 
 void loop() {
-  timeDisplay();
+    bool clockwise = *pin_c & 0b01000000;
+    bool anticlockwise = *pin_c & 0b10000000;
+
+    if(clockwise){
+      myStepper.setSpeed(200);
+      myStepper.step(50);
+    }
+    else if(anticlockwise){
+      myStepper.setSpeed(200);
+      myStepper.step(-50);
+    }
 }
 
 void adc_init(){
@@ -108,7 +123,7 @@ void LCD_display(){
   lcd.print("%");
 }
 
-void timeDisplay(){
+void timeStamp(){
   DateTime now = rtc.now();
 
   Serial.print(now.year(), DEC);
@@ -125,7 +140,6 @@ void timeDisplay(){
   Serial.print(':');
   Serial.print(now.second(), DEC);
   Serial.println();
-  delay(1000);
 }
 
 void disabledMode(){
