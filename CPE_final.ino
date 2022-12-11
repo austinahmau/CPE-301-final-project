@@ -54,16 +54,20 @@ void setup() {
 }
 
 void loop() {
-    bool clockwise = *pin_c & 0b01000000;
-    bool anticlockwise = *pin_c & 0b10000000;
+    bool clockwise = *pin_c & 0b01000000; //left button
+    bool anticlockwise = *pin_c & 0b10000000; //right button
 
     if(clockwise){
       myStepper.setSpeed(200);
       myStepper.step(50);
+      Serial.print("Vent up at: ");
+      timeStamp();
     }
     else if(anticlockwise){
       myStepper.setSpeed(200);
       myStepper.step(-50);
+      Serial.print("Vent down at: ");
+      timeStamp();
     }
 }
 
