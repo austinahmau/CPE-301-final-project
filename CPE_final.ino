@@ -4,7 +4,6 @@
 #include <Wire.h>
 #include <Stepper.h>
 
-
 #define RDA 0x80
 #define TBE 0x20
 
@@ -52,7 +51,16 @@ char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursd
 const int stepsPerRevolution = 32;
 Stepper myStepper = Stepper(stepsPerRevolution, 2, 4, 3, 5);
 
-unsigned int waterLevel = 0;
+//Threshold variables
+unsigned int water_threshold = 200;
+unsigned int humidity_threshold = 0;
+unsigned int temp_threshold = 30;
+
+int water_level;
+float humidity;
+float temp;
+
+unsigned int mode = 0;
 
 void setup() {
   U0init(9600);
@@ -63,10 +71,10 @@ void setup() {
   dht.begin();
   lcd.print("Temp    Humidity");
   
-  //set port C bits 7-5 to inputs = pins 30, 31, 32 (use for buttons)
-  *ddr_c &= 0b00011111;
+  //set port C bits 7-4 to inputs = pins 30, 31, 32, 33 (use for buttons)
+  *ddr_c &= 0b00001111;
   //enable pullup resistors for port E bits 7-5
-  *port_c |= 0b11100000;
+  *port_c |= 0b11110000;
 
   //set port A bits 0-3 to outputs = pins 22, 23, 24, 25 (use for LEDs)
   *ddr_a |= 0b00001111;
@@ -80,15 +88,20 @@ void setup() {
 }
 
 void loop(){
-  /*unsigned int waterReading = adc_read(0);
-  print_int(waterReading);
-  delay(500);*/
-
-  /**port_l |= 0b00000001;
-  *port_l |= 0b00000100;
-  delay(3000);
-  *port_l &= 0b11111010;
-  delay(3000);*/
+  switch(mode){
+    case 1:
+      idleMode();
+      break;
+    case 2:
+      runningMode();
+      break;
+    case 3:
+      errorMode();
+      break;
+    default:
+      disabledMode();
+      break;
+  }
 }
 
 void LCD_display(){
@@ -96,8 +109,8 @@ void LCD_display(){
   
   int read_values = dht.read(DHTPIN);
   
-  float humidity = dht.readHumidity();
-  float temp = dht.readTemperature(true);
+  humidity = dht.readHumidity();
+  temp = dht.readTemperature(true);
 
   if(isnan(humidity) || isnan(temp)){
     lcd.setCursor(0,1);
@@ -152,25 +165,44 @@ void ventDirection(){
   }
 }
 
-void fanMotor(){
-  
+int checkStartButton(){
+  if(*pin_c & 0b00100000){
+    while(*pin_c & 0b00100000){}
+    return 0;
+  }
+  return -1;
 }
 
 void disabledMode(){
-  *pin_a |= 0b00000001; //yellow LED pin 22
-  
+  *pin_a |= 0b00000001; //yellow LED on
+
+  while(mode == 0){
+    if(checkStartButton() == 0){
+      mode = (mode == 0 ? 1 : 0);
+    }
+  }
+  *port_a &= 0b11111110;  
 }
 
 void idleMode(){
-  *pin_a |= 0b00000010; //green LED pin 23
+  *pin_a |= 0b00000010; //green LED on
+
+  while(mode == 1){
+    if(checkStartButton() == 0){
+      mode = (mode == 0 ? 1 : 0);
+    }
+  }
+  *port_a &= 0b11111101; 
 }
 
 void runningMode(){
-  *pin_a |= 0b00000100; //blue LED pin 24
+  *pin_a |= 0b00000100; //blue LED on
+
 }
 
 void errorMode(){
-  *pin_a |= 0b00001000; //red LED pin 25
+  *pin_a |= 0b00001000; //red LED on
+
 }
 
 void adc_init(){
