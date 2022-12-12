@@ -16,15 +16,20 @@ DHT dht(DHTPIN, DHTTYPE);
 //LCD Initialization
 LiquidCrystal lcd(7, 8, 9, 10 ,11 , 12); //rs = pin 7, e = pin 8, d4 = pin 9, d5 = pin 10, d6 = pin 11, d7 = pin 12 
 
-//Port A registers
+//Port A registers for LEDs
 volatile unsigned char* port_a =(unsigned char*) 0x22;
 volatile unsigned char* ddr_a =(unsigned char*) 0x21;
 volatile unsigned char* pin_a =(unsigned char*) 0x20;
 
-//Port C registers
+//Port C registers for buttons
 volatile unsigned char* port_c =(unsigned char*) 0x28;
 volatile unsigned char* ddr_c =(unsigned char*) 0x27;
 volatile unsigned char* pin_c =(unsigned char*) 0x26;
+
+//Port L registers for motor/fan
+volatile unsigned char* port_l =(unsigned char*) 0x10B;
+volatile unsigned char* ddr_l =(unsigned char*) 0x10A;
+volatile unsigned char* pin_l =(unsigned char*) 0x109;
 
 //ADC registers
 volatile unsigned char* my_ADMUX = (unsigned char *) 0x7C;
@@ -66,6 +71,9 @@ void setup() {
   //set port A bits 0-3 to outputs = pins 22, 23, 24, 25 (use for LEDs)
   *ddr_a |= 0b00001111;
 
+  //set Port L bits 0 and 2 to outputs = pins 49 and 47 (use for motor/fan)
+  *ddr_l |= 0b00000101;
+
   rtc.begin();
   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
@@ -75,6 +83,12 @@ void loop(){
   /*unsigned int waterReading = adc_read(0);
   print_int(waterReading);
   delay(500);*/
+
+  /**port_l |= 0b00000001;
+  *port_l |= 0b00000100;
+  delay(3000);
+  *port_l &= 0b11111010;
+  delay(3000);*/
 }
 
 void LCD_display(){
@@ -137,6 +151,11 @@ void ventDirection(){
     timeStamp();
   }
 }
+
+void fanMotor(){
+  
+}
+
 void disabledMode(){
   *pin_a |= 0b00000001; //yellow LED pin 22
   
