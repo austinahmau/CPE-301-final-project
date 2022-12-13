@@ -155,24 +155,18 @@ void timeStamp(){
 }
 
 void ventDirection(){
-  bool clockwise = *pin_c & 0b01000000; //left button
-  bool anticlockwise = *pin_c & 0b10000000; //right button
+  bool clockwise = *pin_c & 0b10000000; //left button
+  bool anticlockwise = *pin_c & 0b01000000; //right button
 
   if(clockwise){
     myStepper.setSpeed(200);
-    myStepper.step(50);
-    if(mode != 0){
-      Serial.print("Vent up at: ");
-      timeStamp();
-    }
-  }
-  else if(anticlockwise){
-    myStepper.setSpeed(200);
     myStepper.step(-50);
-    if(mode != 0){
-      Serial.print("Vent down at: ");
-      timeStamp();
-    }
+    Serial.print("vent up");
+  }
+  if(anticlockwise){
+    myStepper.setSpeed(200);
+    myStepper.step(50);
+    Serial.print("vent down");
   }
 }
 
@@ -187,7 +181,7 @@ int checkStartButton(){
 void disabledMode(){
   *pin_a |= 0b00000001; //yellow LED on
   
-  while(mode == 0){
+  while(mode == 0){    
     if(checkStartButton() == 0){
       mode = (mode == 0 ? 1 : 0);
     }
@@ -224,7 +218,6 @@ void runningMode(){
   while(mode == 2){
     water_level = adc_read(0); 
     temp = dht.readTemperature(true);
-    
     if(water_level <= water_threshold){
       mode = 3;
     }
@@ -234,8 +227,8 @@ void runningMode(){
     if(checkStartButton() == 0){
       mode = 0;
     }
-    ventDirection();
   }
+  
   lcd.clear();  
   *port_l &= 0b11111011;
   *port_a &= 0b11111011;
