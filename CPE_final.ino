@@ -52,7 +52,7 @@ const int stepsPerRevolution = 32;
 Stepper myStepper = Stepper(stepsPerRevolution, 2, 4, 3, 5);
 
 //Threshold variables
-unsigned int water_threshold = 250;
+unsigned int water_threshold = 300;
 unsigned int humidity_threshold = 0;
 unsigned int temp_threshold = 30;
 
@@ -87,17 +87,26 @@ void setup() {
 }
 
 void loop(){
+  timeStamp();
   switch(mode){
     case 1:
+      Serial.print(" entered idle mode ");
+      Serial.println();
       idleMode();
       break;
     case 2:
+      Serial.print(" entered running mode ");
+      Serial.println();
       runningMode();
       break;
     case 3:
+      Serial.print(" entered error mode ");
+      Serial.println();
       errorMode();
       break;
     default:
+      Serial.print(" entered disabled mode ");
+      Serial.println();
       disabledMode();
       break;
   }
@@ -143,13 +152,12 @@ void timeStamp(){
   Serial.print(now.minute(), DEC);
   Serial.print(':');
   Serial.print(now.second(), DEC);
-  Serial.println();
 }
 
 void ventDirection(){
   bool clockwise = *pin_c & 0b01000000; //left button
   bool anticlockwise = *pin_c & 0b10000000; //right button
-  
+
   if(clockwise){
     myStepper.setSpeed(200);
     myStepper.step(50);
@@ -183,7 +191,6 @@ void disabledMode(){
     if(checkStartButton() == 0){
       mode = (mode == 0 ? 1 : 0);
     }
-    ventDirection();
   }
   *port_a &= 0b11111110;  
 }
@@ -205,7 +212,6 @@ void idleMode(){
     if(temp > temp_threshold){
       mode = 2;
     }
-    ventDirection();
   }
   *port_a &= 0b11111101; 
 }
@@ -240,12 +246,15 @@ void errorMode(){
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("WATER LEVEL LOW");
-
-  while(water_level < water_threshold){
+  
+  while(mode == 3){
     water_level = adc_read(0);
-  }
-  if(checkStartButton() == 0){
-    mode = 0;
+
+    if(water_level > water_threshold){
+      if(checkStartButton() == 0){
+        mode = 0;
+      }
+    }
   }
   lcd.clear();
   *port_a &= 0b11110111;
