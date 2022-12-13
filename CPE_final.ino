@@ -52,7 +52,7 @@ const int stepsPerRevolution = 32;
 Stepper myStepper = Stepper(stepsPerRevolution, 2, 4, 3, 5);
 
 //Threshold variables
-unsigned int water_threshold = 200;
+unsigned int water_threshold = 250;
 unsigned int humidity_threshold = 0;
 unsigned int temp_threshold = 30;
 
@@ -69,7 +69,6 @@ void setup() {
   //set up LCD and DHT
   lcd.begin(16,2);
   dht.begin();
-  lcd.print("Temp    Humidity");
   
   //set port C bits 7-4 to inputs = pins 30, 31, 32, 33 (use for buttons)
   *ddr_c &= 0b00001111;
@@ -104,9 +103,7 @@ void loop(){
   }
 }
 
-void LCD_display(){
-  delay(2000);
-  
+void LCD_display(){  
   int read_values = dht.read(DHTPIN);
   
   humidity = dht.readHumidity();
@@ -117,7 +114,7 @@ void LCD_display(){
     lcd.print("ERROR           ");
     return;
   }
-
+  lcd.print("Temp    Humidity");
   lcd.setCursor(0,1);
   lcd.print(temp);
   lcd.print((char)223);
@@ -126,6 +123,8 @@ void LCD_display(){
   lcd.setCursor(8,1);
   lcd.print(humidity);
   lcd.print("%");
+
+  delay(200);
 }
 
 void timeStamp(){
@@ -154,14 +153,18 @@ void ventDirection(){
   if(clockwise){
     myStepper.setSpeed(200);
     myStepper.step(50);
-    Serial.print("Vent up at: ");
-    timeStamp();
+    if(mode != 0){
+      Serial.print("Vent up at: ");
+      timeStamp();
+    }
   }
   else if(anticlockwise){
     myStepper.setSpeed(200);
     myStepper.step(-50);
-    Serial.print("Vent down at: ");
-    timeStamp();
+    if(mode != 0){
+      Serial.print("Vent down at: ");
+      timeStamp();
+    }
   }
 }
 
@@ -175,34 +178,77 @@ int checkStartButton(){
 
 void disabledMode(){
   *pin_a |= 0b00000001; //yellow LED on
-
+  
   while(mode == 0){
     if(checkStartButton() == 0){
       mode = (mode == 0 ? 1 : 0);
     }
+    ventDirection();
   }
   *port_a &= 0b11111110;  
 }
 
 void idleMode(){
   *pin_a |= 0b00000010; //green LED on
-
+  LCD_display();
+  
   while(mode == 1){
+    water_level = adc_read(0); 
+    temp = dht.readTemperature(true);
+    
     if(checkStartButton() == 0){
       mode = (mode == 0 ? 1 : 0);
     }
+    if(water_level <= water_threshold){
+      mode = 3;
+    }
+    if(temp > temp_threshold){
+      mode = 2;
+    }
+    ventDirection();
   }
   *port_a &= 0b11111101; 
 }
 
 void runningMode(){
   *pin_a |= 0b00000100; //blue LED on
+  *port_l |= 0b00000001;
+  *port_l |= 0b00000100;
 
+  while(mode == 2){
+    water_level = adc_read(0); 
+    temp = dht.readTemperature(true);
+    
+    if(water_level <= water_threshold){
+      mode = 3;
+    }
+    if(temp < temp_threshold){
+      mode = 1;
+    }
+    if(checkStartButton() == 0){
+      mode = 0;
+    }
+    ventDirection();
+  }
+  lcd.clear();  
+  *port_l &= 0b11111011;
+  *port_a &= 0b11111011;
 }
 
 void errorMode(){
   *pin_a |= 0b00001000; //red LED on
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("WATER LEVEL LOW");
 
+  while(water_level < water_threshold){
+    water_level = adc_read(0);
+  }
+  if(checkStartButton() == 0){
+    mode = 0;
+  }
+  lcd.clear();
+  *port_a &= 0b11110111;
 }
 
 void adc_init(){
