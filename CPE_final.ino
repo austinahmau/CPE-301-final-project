@@ -87,29 +87,10 @@ void setup() {
 }
 
 void loop(){
-  timeStamp();
-  switch(mode){
-    case 1:
-      Serial.print(" entered idle mode ");
-      Serial.println();
-      idleMode();
-      break;
-    case 2:
-      Serial.print(" entered running mode ");
-      Serial.println();
-      runningMode();
-      break;
-    case 3:
-      Serial.print(" entered error mode ");
-      Serial.println();
-      errorMode();
-      break;
-    default:
-      Serial.print(" entered disabled mode ");
-      Serial.println();
-      disabledMode();
-      break;
-  }
+  disabledMode();
+  idleMode();
+  runningMode();
+  errorMode();
 }
 
 void LCD_display(){  
@@ -152,21 +133,28 @@ void timeStamp(){
   Serial.print(now.minute(), DEC);
   Serial.print(':');
   Serial.print(now.second(), DEC);
+  Serial.println();
 }
 
 void ventDirection(){
   bool clockwise = *pin_c & 0b10000000; //left button
   bool anticlockwise = *pin_c & 0b01000000; //right button
-
-  if(clockwise){
+  
+  if(clockwise != 0){
     myStepper.setSpeed(200);
-    myStepper.step(-50);
-    Serial.print("vent up");
+    myStepper.step(-100);
+    if(mode != 0){
+      Serial.print("Vent up ");
+      timeStamp();
+    }
   }
-  if(anticlockwise){
+  if(anticlockwise != 0){
     myStepper.setSpeed(200);
-    myStepper.step(50);
-    Serial.print("vent down");
+    myStepper.step(100);
+    if(mode != 0){
+      Serial.print("Vent down ");
+      timeStamp();
+    }  
   }
 }
 
@@ -180,11 +168,14 @@ int checkStartButton(){
 
 void disabledMode(){
   *pin_a |= 0b00000001; //yellow LED on
+  Serial.print("In disabled mode: ");
+  timeStamp();
   
   while(mode == 0){    
     if(checkStartButton() == 0){
       mode = (mode == 0 ? 1 : 0);
     }
+    ventDirection();
   }
   *port_a &= 0b11111110;  
 }
@@ -192,11 +183,14 @@ void disabledMode(){
 void idleMode(){
   *pin_a |= 0b00000010; //green LED on
   LCD_display();
+  Serial.print("In idle mode: ");
+  timeStamp();
   
   while(mode == 1){
     water_level = adc_read(0); 
     temp = dht.readTemperature(true);
-    
+    humidity = dht.readHumidity();
+
     if(checkStartButton() == 0){
       mode = (mode == 0 ? 1 : 0);
     }
@@ -206,6 +200,7 @@ void idleMode(){
     if(temp > temp_threshold){
       mode = 2;
     }
+    ventDirection();
   }
   *port_a &= 0b11111101; 
 }
@@ -214,10 +209,16 @@ void runningMode(){
   *pin_a |= 0b00000100; //blue LED on
   *port_l |= 0b00000001;
   *port_l |= 0b00000100;
+  Serial.print("In running mode: ");
+  timeStamp();
+  Serial.print("Motor on: ");
+  timeStamp();
 
   while(mode == 2){
     water_level = adc_read(0); 
     temp = dht.readTemperature(true);
+    humidity = dht.readHumidity();
+      
     if(water_level <= water_threshold){
       mode = 3;
     }
@@ -227,8 +228,11 @@ void runningMode(){
     if(checkStartButton() == 0){
       mode = 0;
     }
+    ventDirection();
   }
-  
+
+  Serial.print("Motor off: ");
+  timeStamp();
   lcd.clear();  
   *port_l &= 0b11111011;
   *port_a &= 0b11111011;
@@ -239,6 +243,10 @@ void errorMode(){
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("WATER LEVEL LOW");
+  if(mode == 3){
+    Serial.print("In error mode: ");
+    timeStamp();
+  }
   
   while(mode == 3){
     water_level = adc_read(0);
@@ -289,7 +297,6 @@ unsigned int adc_read(unsigned char adc_channel_num){
   while((*my_ADCSRA & 0x40) != 0);
   // return the result in the ADC data register
   return *my_ADC_DATA;
-  
 }
 
 void print_int(unsigned int out_num){
